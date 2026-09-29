@@ -5,108 +5,130 @@ using namespace std;
 struct Nodito {
     int llave = 0;
     int grado = 0;
-    int padre = 0;
     int hijo = 0;
-    int izq = 0;
-    int der = 0;
-    bool marca = false;
+    int hermano = 0;
+};
+
+struct Celda {
+    int arbol = 0;
+    int sig = 0;
+};
+
+struct Version {
+    int primero = 0;
+    int minimo = 0;
+    int tam = 0;
 };
 
 vector<Nodito> noditos(1);
+vector<Celda> celdas(1);
 
-struct MonticuloFibonacci {
-    int primero = 0;
-    int ultimo = 0;
-    int minimo = 0;
+struct FibonacciPersistente {
+    vector<Version> versiones = vector<Version>(1);
 
-    void agregarRaiz(int x) {
-        noditos[x].padre = 0;
-        noditos[x].marca = false;
-        noditos[x].izq = ultimo;
-        noditos[x].der = 0;
-        if (ultimo != 0) {
-            noditos[ultimo].der = x;
-        } else {
-            primero = x;
-        }
-        ultimo = x;
+    int agregarCelda(int arbol, int sig) {
+        Celda aux;
+        aux.arbol = arbol;
+        aux.sig = sig;
+        celdas.push_back(aux);
+        return celdas.size() - 1;
     }
 
-    void quitarRaiz(int x) {
-        int a = noditos[x].izq;
-        int b = noditos[x].der;
-        if (a != 0) {
-            noditos[a].der = b;
-        } else {
-            primero = b;
+    int menorDe(int a, int b) {
+        if (a == 0) {
+            return b;
         }
-        if (b != 0) {
-            noditos[b].izq = a;
-        } else {
-            ultimo = a;
+        if (b == 0) {
+            return a;
         }
+        if (noditos[b].llave < noditos[a].llave) {
+            return b;
+        }
+        return a;
     }
 
-    int insert(int llave) {
+    int nuevaVersion(Version nv) {
+        versiones.push_back(nv);
+        return versiones.size() - 1;
+    }
+
+    int insert(int v, int llave) {
         Nodito aux;
         aux.llave = llave;
         noditos.push_back(aux);
         int x = noditos.size() - 1;
-        agregarRaiz(x);
-        if (minimo == 0 || llave < noditos[minimo].llave) {
-            minimo = x;
-        }
-        return x;
+        Version nv;
+        nv.primero = agregarCelda(x, versiones[v].primero);
+        nv.minimo = menorDe(versiones[v].minimo, x);
+        nv.tam = versiones[v].tam + 1;
+        return nuevaVersion(nv);
     }
 
-    int getMin() {
-        return noditos[minimo].llave;
+    int getMin(int v) {
+        return noditos[versiones[v].minimo].llave;
     }
 
-    bool empty() {
-        if (minimo == 0) {
+    bool empty(int v) {
+        if (versiones[v].tam == 0) {
             return true;
         }
         return false;
     }
 
-    void merge(MonticuloFibonacci& otro) {
-        if (otro.primero == 0) {
-            return;
+    int merge(int v1, int v2) {
+        int lista = versiones[v1].primero;
+        int c = versiones[v2].primero;
+        while (c != 0) {
+            lista = agregarCelda(celdas[c].arbol, lista);
+            c = celdas[c].sig;
         }
-        if (primero == 0) {
-            primero = otro.primero;
-        } else {
-            noditos[ultimo].der = otro.primero;
-            noditos[otro.primero].izq = ultimo;
-        }
-        ultimo = otro.ultimo;
-        if (minimo == 0 || noditos[otro.minimo].llave < noditos[minimo].llave) {
-            minimo = otro.minimo;
-        }
-        otro.primero = 0;
-        otro.ultimo = 0;
-        otro.minimo = 0;
+        Version nv;
+        nv.primero = lista;
+        nv.minimo = menorDe(versiones[v1].minimo, versiones[v2].minimo);
+        nv.tam = versiones[v1].tam + versiones[v2].tam;
+        return nuevaVersion(nv);
     }
 
-    void enlazar(int y, int x) {
-        noditos[y].padre = x;
-        noditos[y].marca = false;
-        noditos[y].izq = 0;
-        noditos[y].der = noditos[x].hijo;
-        if (noditos[x].hijo != 0) {
-            noditos[noditos[x].hijo].izq = y;
+    int enlazar(int x, int y) {
+        if (noditos[y].llave < noditos[x].llave) {
+            int temp = x;
+            x = y;
+            y = temp;
         }
-        noditos[x].hijo = y;
-        noditos[x].grado = noditos[x].grado + 1;
+        Nodito copiaY = noditos[y];
+        copiaY.hermano = noditos[x].hijo;
+        noditos.push_back(copiaY);
+        int nuevoY = noditos.size() - 1;
+
+        Nodito copiaX = noditos[x];
+        copiaX.hijo = nuevoY;
+        copiaX.grado = copiaX.grado + 1;
+        noditos.push_back(copiaX);
+        return noditos.size() - 1;
     }
 
-    void consolidar() {
+    int extractMin(int v) {
+        if (versiones[v].tam <= 1) {
+            Version vacia;
+            return nuevaVersion(vacia);
+        }
+        int z = versiones[v].minimo;
+
         vector<int> lista;
-        int r = primero;
-        while (r != 0) {
-            lista.push_back(r);
-            r = noditos[r].der;
+        bool yaSaltado = false;
+        int c = versiones[v].primero;
+        while (c != 0) {
+            if (celdas[c].arbol == z && yaSaltado == false) {
+                yaSaltado = true;
+            } else {
+                lista.push_back(celdas[c].arbol);
+            }
+            c = celdas[c].sig;
+        }
+        int h = noditos[z].hijo;
+        while (h != 0) {
+            lista.push_back(h);
+            h = noditos[h].hermano;
         }
 
         vector<int> porGrado;
@@ -114,13 +136,7 @@ struct MonticuloFibonacci {
             int x = lista[i];
             int g = noditos[x].grado;
             while (g < porGrado.size() && porGrado[g] != 0) {
-                int y = porGrado[g];
-                if (noditos[y].llave < noditos[x].llave) {
-                    int temp = x;
-                    x = y;
-                    y = temp;
-                }
-                enlazar(y, x);
+                x = enlazar(x, porGrado[g]);
                 porGrado[g] = 0;
                 g++;
             }
@@ -130,68 +146,14 @@ struct MonticuloFibonacci {
             porGrado[g] = x;
         }
 
-        primero = 0;
-        ultimo = 0;
-        minimo = 0;
+        Version nv;
         for (int g = 0; g < porGrado.size(); g++) {
             if (porGrado[g] != 0) {
-                agregarRaiz(porGrado[g]);
-                if (minimo == 0 || noditos[porGrado[g]].llave < noditos[minimo].llave) {
-                    minimo = porGrado[g];
-                }
+                nv.primero = agregarCelda(porGrado[g], nv.primero);
+                nv.minimo = menorDe(nv.minimo, porGrado[g]);
             }
         }
-    }
-
-    int extractMin() {
-        int z = minimo;
-        int h = noditos[z].hijo;
-        while (h != 0) {
-            int siguiente = noditos[h].der;
-            agregarRaiz(h);
-            h = siguiente;
-        }
-        quitarRaiz(z);
-        consolidar();
-        return noditos[z].llave;
-    }
-
-    void cut(int x, int p) {
-        int a = noditos[x].izq;
-        int b = noditos[x].der;
-        if (a != 0) {
-            noditos[a].der = b;
-        } else {
-            noditos[p].hijo = b;
-        }
-        if (b != 0) {
-            noditos[b].izq = a;
-        }
-        noditos[p].grado = noditos[p].grado - 1;
-        agregarRaiz(x);
-    }
-
-    void cascadingCut(int y) {
-        int z = noditos[y].padre;
-        if (z != 0) {
-            if (noditos[y].marca == false) {
-                noditos[y].marca = true;
-            } else {
-                cut(y, z);
-                cascadingCut(z);
-            }
-        }
-    }
-
-    void decreaseKey(int x, int k) {
-        noditos[x].llave = k;
-        int p = noditos[x].padre;
-        if (p != 0 && noditos[x].llave < noditos[p].llave) {
-            cut(x, p);
-            cascadingCut(p);
-        }
-        if (noditos[x].llave < noditos[minimo].llave) {
-            minimo = x;
-        }
+        nv.tam = versiones[v].tam - 1;
+        return nuevaVersion(nv);
     }
 };
