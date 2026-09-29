@@ -5,7 +5,6 @@ using namespace std;
 struct Nodito {
     int llave = 0;
     int grado = 0;
-    int padre = 0;
     int hijo = 0;
     int hermano = 0;
 };
@@ -18,11 +17,16 @@ int enlazar(int a, int b) {
         a = b;
         b = temp;
     }
-    noditos[b].padre = a;
-    noditos[b].hermano = noditos[a].hijo;
-    noditos[a].hijo = b;
-    noditos[a].grado = noditos[a].grado + 1;
-    return a;
+    Nodito copiaB = noditos[b];
+    copiaB.hermano = noditos[a].hijo;
+    noditos.push_back(copiaB);
+    int nuevoB = noditos.size() - 1;
+
+    Nodito copiaA = noditos[a];
+    copiaA.hijo = nuevoB;
+    copiaA.grado = copiaA.grado + 1;
+    noditos.push_back(copiaA);
+    return noditos.size() - 1;
 }
 
 vector<int> unirRaices(vector<int> a, vector<int> b) {
@@ -67,73 +71,63 @@ vector<int> unirRaices(vector<int> a, vector<int> b) {
     return res;
 }
 
-struct MonticuloBinomial {
-    vector<int> raices;
+struct BinomialPersistente {
+    vector<vector<int>> versiones = vector<vector<int>>(1);
 
-    int insert(int llave) {
+    int nuevaVersion(vector<int> raices) {
+        versiones.push_back(raices);
+        return versiones.size() - 1;
+    }
+
+    int insert(int v, int llave) { 
         Nodito aux;
         aux.llave = llave;
         noditos.push_back(aux);
         int x = noditos.size() - 1;
         vector<int> solo(1, x);
-        raices = unirRaices(raices, solo);
-        return x;
+        return nuevaVersion(unirRaices(versiones[v], solo));
     }
 
-    int minNodito() {
+    int minNodito(int v) {
         int menor = 0;
-        for (int k = 0; k < raices.size(); k++) {
-            if (raices[k] != 0) {
-                if (menor == 0 || noditos[raices[k]].llave < noditos[menor].llave) {
-                    menor = raices[k];
+        for (int k = 0; k < versiones[v].size(); k++) {
+            int r = versiones[v][k];
+            if (r != 0) {
+                if (menor == 0 || noditos[r].llave < noditos[menor].llave) {
+                    menor = r;
                 }
             }
         }
         return menor;
     }
 
-    int getMin() {
-        int menor = minNodito();
+    int getMin(int v) {
+        int menor = minNodito(v);
         return noditos[menor].llave;
     }
 
-    bool empty() {
-        if (raices.size() == 0) {
+    bool empty(int v) {
+        if (versiones[v].size() == 0) {
             return true;
         }
         return false;
     }
 
-    int extractMin() {
-        int x = minNodito();
-        raices[noditos[x].grado] = 0;
+    int extractMin(int v) {
+        int x = minNodito(v);
+        vector<int> resto = versiones[v];
+        resto[noditos[x].grado] = 0;
 
         vector<int> hijosX(noditos[x].grado, 0);
         int h = noditos[x].hijo;
         while (h != 0) {
-            int siguiente = noditos[h].hermano;
-            noditos[h].padre = 0;
-            noditos[h].hermano = 0;
             hijosX[noditos[h].grado] = h;
-            h = siguiente;
+            h = noditos[h].hermano;
         }
-        raices = unirRaices(raices, hijosX);
-        return noditos[x].llave;
+        return nuevaVersion(unirRaices(resto, hijosX));
     }
 
-    void merge(MonticuloBinomial& otro) {
-        raices = unirRaices(raices, otro.raices);
-        otro.raices.clear();
-    }
-
-    void decreaseKey(int x, int k) {
-        noditos[x].llave = k;
-        while (noditos[x].padre != 0 && noditos[x].llave < noditos[noditos[x].padre].llave) {
-            int p = noditos[x].padre;
-            int temp = noditos[x].llave;
-            noditos[x].llave = noditos[p].llave;
-            noditos[p].llave = temp;
-            x = p;
-        }
+    int merge(int v1, int v2) {
+        return nuevaVersion(unirRaices(versiones[v1], versiones[v2]));
     }
 };
